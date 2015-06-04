@@ -174,6 +174,8 @@ $.fn.remove = function() {
   return orig.apply(this, arguments);
 }
 
+jQuery.ajaxSettings.traditional = true;
+
 _.templateSettings.interpolate = /{{([\s\S]+?)}}/g;
 
 _.getType = function (value) {
@@ -311,9 +313,12 @@ _.extend(Backbone.Collection.prototype, {
   
   initialize: function (models, options) {
     this.createNameCollection();   
-    app.initCollections[this.name] = this;
 
     options || (options = {});
+    if (!options.hasOwnProperty('addInit') || options.addInit) {
+      app.initCollections[this.name] = this;
+    }
+
     if (options.rollbackable) {
       this._rollbackable = true;
     }
@@ -584,7 +589,7 @@ Backbone.sync = _.wrap(Backbone.sync, function (sync, method, model, options) {
     onStopRender.call(model);
   }
 
-  function onStopRender() {
+  function onStopRender() { 
     if ("xhr" in this.loading) this.loading.xhr.abort();    
     xhrComplete();
   }
@@ -610,15 +615,13 @@ Backbone.sync = _.wrap(Backbone.sync, function (sync, method, model, options) {
     app.debug('Запрос на "' + url + '". Oшибка запроса: ' + err.statusText + '.', "error");
     xhrComplete();
     error.apply(model || this, arguments);
-  };
-
-  var xhr = sync.apply(model, [].slice.call(arguments, 1));
+  };  
 
   model.loading = {
     method: method,
-    xhr: xhr
-  }
-
+    xhr: sync.apply(model, [].slice.call(arguments, 1))
+  }  
+  
   model.on("xhrAbort", onStopRender, model);
 });
 
@@ -629,4 +632,4 @@ if (navigator.browserDetect.browser === "Explorer") {
 }
 /************************************************************************/
 
-module.exports = require('./config');
+module.exports = require('./index.json');

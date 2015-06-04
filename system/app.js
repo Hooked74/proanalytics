@@ -58,9 +58,23 @@ module.exports = function () {
   }());
 
   App.prototype.addComponents = function () {
+    var socket = require('./socket');
+    var socketConfig = require('./socket/config');
+        
+    app.sockets = {};    
+    app.sockets.allCompaniesConnection = socket(location.origin + '/allCompanies', socketConfig.allCompaniesConnection);    
+    
+    $.get('/system/rooms', function (data) {
+      if (data.message) return app.error("App", "addComponents", data.message); 
+      app.sockets.selfConnection = socket(location.origin + '/user_' + data.id, socketConfig.selfConnection);
+      app.sockets.selfCompanyConnection = socket(location.origin + '/company_' + data.companyId, socketConfig.selfCompanyConnection);       
+    });    
+    
     //Static classes
     App.Collection = {};
+    App.Collection.Cached = require('./collections/cached-collection');
     App.Collection.Chart = require('./collections/chart-parent');
+    App.Collection.Preload = require('./collections/preload-collection');
 
     App.View = {};
     App.View.Parent = require('./views/parent');
@@ -81,6 +95,7 @@ module.exports = function () {
     this.models = {
       Account: require('./models/account'),
       AutoReport: require('./models/auto-report'),
+      CompanyWithWork: require('./models/company-with-work'),
       DataReport: require('./models/reports/data'),
       DynamicPriceCities: require('./models/staff/dynamic-price-cities'),
       DynamicPriceCompanies: require('./models/staff/dynamic-price-companies'),
@@ -98,6 +113,7 @@ module.exports = function () {
       StaffDetails: require('./models/staff/details'),
       StaffDetailsFilter: require('./models/staff/detailsFilter'),
       StaffDetailsTable: require('./models/staff/detailsTable'),
+      StaffPrices: require('./models/staff/price'),
       StaffsCitiesWidget: require('./models/staff/cities'),
       StaffsCompaniesWidget: require('./models/staff/companies'),
       StaffsCountWidget: require('./models/staff/count'),
@@ -114,8 +130,8 @@ module.exports = function () {
     };
 
     this.collections = {
-      AutoReports: require('./collections/auto-reports'),
-      CompanyCity: require('./collections/company-city'),
+      AutoReports: require('./collections/auto-reports'),     
+      CompaniesWithWork: require('./collections/companies-with-work'), 
       DynamicPriceCities: require('./collections/dynamic-price-cities'),
       DynamicPriceCompanies: require('./collections/dynamic-price-companies'),
       ExistsReports: require('./collections/reports/exists'),
@@ -126,6 +142,7 @@ module.exports = function () {
       Sku: require('./collections/sku'),
       StaffDetails: require('./collections/staffDetails'),
       Staffs: require('./collections/staffs'),
+      StaffsPrices: require('./collections/staffs-prices'),
       TemplateReports: require('./collections/reports/template'),
       TypeReports: require('./collections/reports/type'),
       UserCities: require('./collections/userCities'),
@@ -139,6 +156,7 @@ module.exports = function () {
       AutoReport: require('./views/reports/auto/report'),
       AutoReports: require('./views/reports/auto'),
       Breadcrumbs: require('./views/breadcrumbs'),
+      Communication: require('./views/communication'),
       Comparison: require('./views/matching/comparison'),
       ComparisonDestList: require('./views/matching/dest-list'),
       ComparisonDestName: require('./views/matching/dest-name'),
@@ -152,7 +170,7 @@ module.exports = function () {
       ExistsReportDynamicPrice: require('./views/reports/exists/details/dynamic-price'),
       ExistsReports: require('./views/reports/exists'),
       ExistsReportsItem: require('./views/reports/exists/item'),
-      Feedback: require('./views/feedback'),
+      Feedback: require('./views/communication/feedback'),
       GenerateReports: require('./views/reports/generate'),
       GenerateReportsStep1: require('./views/reports/generate/steps/1'),
       GenerateReportsStep2: require('./views/reports/generate/steps/2'),
@@ -164,6 +182,7 @@ module.exports = function () {
       MatchingStatistics: require('./views/statistics/matching'),
       MessagesControl: require('./views/control/messages'),
       Modal: require('./views/modal'),
+      MySystemMessages: require('./views/communication/messages'),
       Pagination: require('./views/pagination'),
       PercentRatio: require('./views/widgets/percent-ratio'),
       PercentRatioStatistics: require('./views/statistics/percent-ratio'),
@@ -181,15 +200,18 @@ module.exports = function () {
       StaffDetailsWidgets: require('./views/staffDetails/widgets'),
       Staffs: require('./views/staffs'),
       StaffsActions: require('./views/staffs/actions'),
+      StaffsAnalytics: require('./views/staffs/analytics'),
+      StaffsData: require('./views/staffs/data'),
       StaffsExtremum: require('./views/staffs/extremum'),
       StaffsFilter: require('./views/staffs/filter'),
       StaffsPriceHistory: require('./views/staffs/price-history'),
+      StaffsPrices: require('./views/staffs/prices'),
       StaffsRow: require('./views/staffs/row'),
       StaffsTable: require('./views/staffs/table'),
       StaffsWidget: require('./views/staffs/widget'),
       StandardMessagesControl: require('./views/control/standard-messages'),
       Statistics: require('./views/statistics'),
-      SystemConfig: require('./views/system-config'),
+      SystemConfig: require('./views/header/system-config'),
       TemplateReport: require('./views/reports/templates/template'),
       TemplatesReports: require('./views/reports/templates'),
       UploadingControl: require('./views/control/uploading-control'),
@@ -364,7 +386,7 @@ module.exports = function () {
       var isBlock = false;
       var delayNotify = setTimeout(function () {
         createCustomNotification();
-        app.playAlertMp3();
+        app.playMp3('alert');
         isBlock = true;
       }, 10000);
       Notification.requestPermission(function () {
@@ -372,11 +394,11 @@ module.exports = function () {
         if (isBlock) return;
         var notification = Notification.permission === 'granted' ? createBrowserNotification : createCustomNotification;
         notification();
-        app.playAlertMp3();
+        app.playMp3('alert');
       });
     } else {
       createCustomNotification();
-      app.playAlertMp3();
+      app.playMp3('alert');
     }
 
     function createCustomNotification() {
@@ -417,11 +439,11 @@ module.exports = function () {
     }
   }
 
-  App.prototype.playAlertMp3 = function () {
-    if (navigator.browserDetect.browser !== "Explorer") {
-      this._audioAlert || (this._audioAlert = new Audio("/sound/alert.mp3"));
-      this._audioAlert.currentTime = 0;
-      this._audioAlert.play();
+  App.prototype.playMp3 = function (soundName) {
+    if (navigator.browserDetect.browser !== "Explorer" && typeof soundName === 'string') {
+      var sound = this['_' + soundName + 'Audio'] || (this['_' + soundName + 'Audio'] = new Audio("/sound/" + soundName + ".mp3"));
+      sound.currentTime = 0;
+      sound.play();
     }
   }
 

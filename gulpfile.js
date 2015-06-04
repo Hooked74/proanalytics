@@ -64,7 +64,7 @@ gulp.task('createConfig', function () {
 gulp.task('changeAppConfig:dist', function () {
   var config = require('./' + _.app + "/config.json");
   for (var i = _.scripts.length; i--;) {
-    var configPath = './' + _.app + "/scripts/" + _.scripts[i] + "/config/config.json";
+    var configPath = './' + _.app + "/scripts/" + _.scripts[i] + "/config/index.json";
     config[_.scripts[i]].mode_debug = false;
     fs.writeFileSync(configPath, JSON.stringify(config[_.scripts[i]]));
   }
@@ -75,7 +75,7 @@ gulp.task('changeAppConfig:dist', function () {
 gulp.task('changeAppConfig:dev', function () {
   var config = JSON.parse(fs.readFileSync('./' + _.app + "/config.json"));
   for (var i = _.scripts.length; i--;) {
-    var configPath = './' + _.app + "/scripts/" + _.scripts[i] + "/config/config.json";
+    var configPath = './' + _.app + "/scripts/" + _.scripts[i] + "/config/index.json";
     config[_.scripts[i]].mode_debug = true;
     fs.writeFileSync(configPath, JSON.stringify(config[_.scripts[i]]));
   }
@@ -230,7 +230,7 @@ gulp.task('svg:dist', function () {
     .pipe($.size());
 
   return gulp.src([
-            _.app + '/styles/fonts/*.svg',
+            _.app + '/styles/fonts/**/*.svg',
             'bower_components/bootstrap-sass-official/assets/fonts/bootstrap/*.svg'
         ])
     .pipe($.plumber())
@@ -285,10 +285,15 @@ gulp.task('html', function () {
     .pipe(gulp.dest(_.dist + "/langs"));
 
   gulp.src([
-            _.app + '/styles/fonts/*.{woff,ttf,eot}',
+            _.app + '/styles/fonts/**/*.{woff,ttf,eot}',
             'bower_components/bootstrap-sass-official/assets/fonts/bootstrap/*.{woff,ttf,eot}'
         ])
     .pipe(gulp.dest(_.dist + '/styles/fonts'));
+  
+  gulp.src([
+            _.app + '/sound/*'
+        ])
+    .pipe(gulp.dest(_.dist + '/sound'));
 
   return gulp.src([_.app + '/*.html'])
     .pipe($.plumber())
@@ -414,6 +419,7 @@ gulp.task('noderestart', function () {
       NODE_ENV: mod_env
     }
   });
+  node.on('error', function (err) { console.log(err); });
   node.on('close', function (code) {
     if (code === 8) {
       console.log('Error detected, waiting for changes...');

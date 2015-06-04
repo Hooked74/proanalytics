@@ -9,7 +9,7 @@ var SystemRoute = Backbone.Router.extend({
     "comparison(/)": "comparison",
     "users(/)*request": "users",
     "settings(/)": "settings",
-    "feedback(/)": "feedback",
+    "communication(/)*request": "communication",    
     "statistics(/)*request": "statistics",
     "control(/)*request": "control",
     "*request": "pageNotFound"
@@ -30,10 +30,6 @@ var SystemRoute = Backbone.Router.extend({
     },
     {
       viewName: 'sidebar'
-    },
-    {
-      viewName: 'loading',
-      appMethod: 'remove'
     }];
 
     this.createNecessaryModels();
@@ -41,6 +37,7 @@ var SystemRoute = Backbone.Router.extend({
     app.viewsQueue(queue, function () {
       Backbone.history.start();
       app.events.trigger('sidebar', app.isMinSidebar);  
+      setTimeout(app.remove.bind(app, "loading"), 0);
     });
   },
 
@@ -117,8 +114,17 @@ var SystemRoute = Backbone.Router.extend({
     });
   },
 
-  feedback: function () {
-    app.render('feedback');
+  communication: function (request) {
+    switch (request) {
+    case 'messages':
+      app.render('mySystemMessages');
+      break;
+    case 'feedback':
+      app.render('feedback');
+      break;
+    default:
+      app.render('communication');
+    }
   },
 
   statistics: function (request) {
